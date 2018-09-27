@@ -53,11 +53,13 @@ namespace prjmng.Controllers
                     State = projectTaskViewModel.State??TaskState.NotCompleted,
                     Name = projectTaskViewModel.Name,
                     StartDate = projectTaskViewModel.StartDate,
-                    EndDate = projectTaskViewModel.EndDate
+                    EndDate = projectTaskViewModel.EndDate,
+                    SubtaskAmount = 0
                 };
                 if(projectTaskViewModel.ParentTaskId.HasValue)
                 {
                     pt.ParentTask = await _ctx.ProjectTasks.FindAsync(projectTaskViewModel.ParentTaskId);
+                    pt.ParentTask.SubtaskAmount++;
                 }
                 if(projectTaskViewModel.TaskAssigneeId.HasValue)
                 {
@@ -108,9 +110,14 @@ namespace prjmng.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult> Delete(int id)
         {
-            ProjectTask pt = await _ctx.ProjectTasks.FindAsync(id);
+            ProjectTask pt = await _ctx.ProjectTasks.Include(p=>p.ParentTask)
+                                        .Where(p=>p.Id==id)
+                                        .SingleOrDefaultAsync();
             if(pt!=null)
             {
+                ProjectTask parentTask = await _ctx.ProjectTasks.FindAsync(pt.ParentTask.Id);
+                if(parentTask!=null)
+                    parentTask.SubtaskAmount--;
                 _ctx.ProjectTasks.Remove(pt);
                 await _ctx.SaveChangesAsync();
                 return Ok();
